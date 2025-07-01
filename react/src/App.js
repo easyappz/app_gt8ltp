@@ -1,16 +1,13 @@
 import React from 'react';
 import ErrorBoundary from './ErrorBoundary';
 import Calculator from './components/Calculator';
-import { CssBaseline, Container, Typography } from '@mui/material';
+import { CssBaseline, Container } from '@mui/material';
 
 function App() {
   return (
     <ErrorBoundary>
       <CssBaseline />
-      <Container maxWidth="sm">
-        <Typography variant="h3" component="h1" align="center" gutterBottom sx={{ mt: 4 }}>
-          iOS-style Calculator
-        </Typography>
+      <Container maxWidth="sm" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
         <Calculator />
       </Container>
     </ErrorBoundary>
