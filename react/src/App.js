@@ -1,19 +1,18 @@
-import logo from './logo.svg';
+import React from 'react';
 import ErrorBoundary from './ErrorBoundary';
-import './App.css';
+import Calculator from './components/Calculator';
+import { CssBaseline, Container, Typography } from '@mui/material';
 
 function App() {
   return (
     <ErrorBoundary>
-      <div className="App">
-        <header className="App-header">
-          <img src={logo} className="App-logo" alt="logo" />
-          <p>
-            Шаблон React успешно развернут, <br />
-            Ждите обновлений от AI :)
-          </p>
-        </header>
-      </div>
+      <CssBaseline />
+      <Container maxWidth="sm">
+        <Typography variant="h3" component="h1" align="center" gutterBottom sx={{ mt: 4 }}>
+          iOS-style Calculator
+        </Typography>
+        <Calculator />
+      </Container>
     </ErrorBoundary>
   );
 }
