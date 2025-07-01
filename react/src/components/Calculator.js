@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Button, Grid, Paper, Typography, useTheme, useMediaQuery } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Box, Button, Grid, Paper, Typography, useTheme, useMediaQuery, Snackbar } from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 
 const Calculator = () => {
@@ -9,6 +9,9 @@ const Calculator = () => {
   const [waitingForOperand, setWaitingForOperand] = useState(false);
   const [memory, setMemory] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [showSnackbar, setShowSnackbar] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -30,26 +33,40 @@ const Calculator = () => {
   });
 
   useEffect(() => {
-    const handleKeyDown = (event) => {
-      const key = event.key;
-      if (/[0-9.]/.test(key)) {
-        handleNumberInput(key);
-      } else if (['+', '-', '*', '/'].includes(key)) {
-        handleOperationInput(key);
-      } else if (key === 'Enter') {
-        handleEquals();
-      } else if (key === 'Escape') {
-        handleClear();
-      }
-    };
+    const savedState = localStorage.getItem('calculatorState');
+    if (savedState) {
+      const { display, currentValue, operation, memory, isDarkMode, history, soundEnabled } = JSON.parse(savedState);
+      setDisplay(display);
+      setCurrentValue(currentValue);
+      setOperation(operation);
+      setMemory(memory);
+      setIsDarkMode(isDarkMode);
+      setHistory(history);
+      setSoundEnabled(soundEnabled);
+    }
+  }, []);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [display, currentValue, operation, waitingForOperand]);
+  useEffect(() => {
+    localStorage.setItem('calculatorState', JSON.stringify({
+      display,
+      currentValue,
+      operation,
+      memory,
+      isDarkMode,
+      history,
+      soundEnabled
+    }));
+  }, [display, currentValue, operation, memory, isDarkMode, history, soundEnabled]);
+
+  const playSound = useCallback(() => {
+    if (soundEnabled) {
+      const audio = new Audio('https://www.soundjay.com/buttons/button-1.mp3');
+      audio.play();
+    }
+  }, [soundEnabled]);
 
   const handleNumberInput = (number) => {
+    playSound();
     if (waitingForOperand) {
       setDisplay(number === '.' ? '0.' : number);
       setWaitingForOperand(false);
@@ -59,12 +76,14 @@ const Calculator = () => {
   };
 
   const handleOperationInput = (op) => {
+    playSound();
     if (currentValue === null) {
       setCurrentValue(parseFloat(display));
     } else if (operation) {
       const result = calculate(currentValue, parseFloat(display), operation);
       setCurrentValue(result);
       setDisplay(formatNumber(result));
+      addToHistory(`${currentValue} ${operation} ${display} = ${result}`);
     }
     setOperation(op);
     setWaitingForOperand(true);
@@ -81,9 +100,11 @@ const Calculator = () => {
   };
 
   const handleEquals = () => {
+    playSound();
     if (operation && currentValue !== null) {
       const result = calculate(currentValue, parseFloat(display), operation);
       setDisplay(formatNumber(result));
+      addToHistory(`${currentValue} ${operation} ${display} = ${result}`);
       setCurrentValue(null);
       setOperation(null);
       setWaitingForOperand(true);
@@ -91,6 +112,7 @@ const Calculator = () => {
   };
 
   const handleClear = () => {
+    playSound();
     setDisplay('0');
     setCurrentValue(null);
     setOperation(null);
@@ -98,28 +120,35 @@ const Calculator = () => {
   };
 
   const handleAllClear = () => {
+    playSound();
     handleClear();
     setMemory(null);
+    setHistory([]);
   };
 
   const handleToggleSign = () => {
+    playSound();
     setDisplay(formatNumber(-parseFloat(display)));
   };
 
   const handlePercent = () => {
+    playSound();
     const value = parseFloat(display);
     setDisplay(formatNumber(value / 100));
   };
 
   const handleMemoryAdd = () => {
+    playSound();
     setMemory((prev) => (prev || 0) + parseFloat(display));
   };
 
   const handleMemorySubtract = () => {
+    playSound();
     setMemory((prev) => (prev || 0) - parseFloat(display));
   };
 
   const handleMemoryRecall = () => {
+    playSound();
     if (memory !== null) {
       setDisplay(formatNumber(memory));
       setWaitingForOperand(true);
@@ -133,6 +162,23 @@ const Calculator = () => {
       return parseFloat(num).toExponential(5);
     }
     return formatted;
+  };
+
+  const addToHistory = (entry) => {
+    setHistory((prev) => [entry, ...prev.slice(0, 9)]);
+  };
+
+  const handleCopyToClipboard = () => {
+    navigator.clipboard.writeText(display).then(() => {
+      setShowSnackbar(true);
+    });
+  };
+
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setShowSnackbar(false);
   };
 
   const buttonStyle = {
@@ -181,13 +227,22 @@ const Calculator = () => {
             <Typography variant="h6" color="text.secondary">
               Calculator
             </Typography>
-            <Button
-              size="small"
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              sx={{ color: 'text.secondary' }}
-            >
-              {isDarkMode ? '☀️' : '🌙'}
-            </Button>
+            <Box>
+              <Button
+                size="small"
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                sx={{ color: 'text.secondary', mr: 1 }}
+              >
+                {soundEnabled ? '🔊' : '🔇'}
+              </Button>
+              <Button
+                size="small"
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                sx={{ color: 'text.secondary' }}
+              >
+                {isDarkMode ? '☀️' : '🌙'}
+              </Button>
+            </Box>
           </Box>
           <Typography
             variant="h4"
@@ -202,7 +257,9 @@ const Calculator = () => {
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              cursor: 'pointer',
             }}
+            onClick={handleCopyToClipboard}
           >
             {display}
           </Typography>
@@ -247,8 +304,38 @@ const Calculator = () => {
               <Button fullWidth variant="contained" sx={operationButtonStyle} onClick={handleEquals}>=</Button>
             </Grid>
           </Grid>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Memory: {memory !== null ? memory : 'Empty'}
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+              <Button size="small" onClick={handleMemoryAdd}>M+</Button>
+              <Button size="small" onClick={handleMemorySubtract}>M-</Button>
+              <Button size="small" onClick={handleMemoryRecall}>MR</Button>
+            </Box>
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              History:
+            </Typography>
+            {history.map((entry, index) => (
+              <Typography key={index} variant="body2" color="text.secondary">
+                {entry}
+              </Typography>
+            ))}
+          </Box>
         </Paper>
       </Box>
+      <Snackbar
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+        open={showSnackbar}
+        autoHideDuration={2000}
+        onClose={handleCloseSnackbar}
+        message="Copied to clipboard"
+      />
     </ThemeProvider>
   );
 };
